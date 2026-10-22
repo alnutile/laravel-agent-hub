@@ -115,7 +115,9 @@ resource "aws_iam_role_policy" "provisioner" {
   policy = jsonencode({ Version = "2012-10-17", Statement = [
     { Effect = "Allow", Action = ["sts:GetCallerIdentity", "ec2:Describe*"], Resource = "*" },
     { Effect = "Allow", Action = ["ssm:GetParameter"], Resource = "arn:aws:ssm:${local.region}::parameter/aws/service/ami-amazon-linux-latest/al2023-ami-kernel-default-x86_64" },
-    { Effect = "Allow", Action = ["s3:ListBucket"], Resource = aws_s3_bucket.state.arn, Condition = { StringLike = { "s3:prefix" = ["agent-hub/poc.tfstate", "agent-hub/poc.tfstate.tflock"] } } },
+    # Backend initialization enumerates workspace prefixes as well as the state key.
+    # Listing this dedicated bucket reveals keys only; object reads stay scoped below.
+    { Effect = "Allow", Action = ["s3:ListBucket"], Resource = aws_s3_bucket.state.arn },
     { Effect = "Allow", Action = ["s3:GetObject", "s3:PutObject"], Resource = ["${aws_s3_bucket.state.arn}/agent-hub/poc.tfstate", "${aws_s3_bucket.state.arn}/agent-hub/poc.tfstate.tflock"] },
     { Effect = "Allow", Action = ["s3:DeleteObject"], Resource = "${aws_s3_bucket.state.arn}/agent-hub/poc.tfstate.tflock" },
     { Effect = "Allow", Action = ["iam:CreateRole", "iam:GetRole", "iam:DeleteRole", "iam:UpdateAssumeRolePolicy", "iam:TagRole", "iam:UntagRole", "iam:ListRolePolicies", "iam:ListAttachedRolePolicies", "iam:GetRolePolicy", "iam:PutRolePolicy", "iam:DeleteRolePolicy", "iam:ListInstanceProfilesForRole"], Resource = local.roles },
