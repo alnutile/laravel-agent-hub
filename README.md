@@ -43,6 +43,15 @@ vendor/bin/pint --test
 composer audit
 ```
 
+To validate the production image with Docker and Python 3:
+
+```bash
+docker build -t agent-hub:test .
+python3 ops/smoke-test.py agent-hub:test
+```
+
+The smoke test uses a disposable container, random local port and ephemeral test operator. It checks migrations, authenticated HTTP submission, duplicate suppression, the database queue, demo completion, health and logout, then removes the container. CI runs the same test.
+
 ## Connect Grokked
 
 Set `AGENT_DRIVER=grokked`, `GROKKED_URL`, `GROKKED_TOKEN`, and `GROKKED_BOT_ID` in the local environment or runtime secret. Configure `AGENT_ALLOWED_DOMAINS`, `AGENT_MAX_USD` and `AGENT_MAX_STEPS`. Restart the queue worker after changes. Use a dedicated bot with only the credentials the pilot needs.

@@ -76,7 +76,7 @@ Open http://localhost:8080. In another SSM shell session, provision an operator:
 sudo docker exec -it --user www-data agent-hub-web php artisan hub:user you@example.com
 ```
 
-Submit a demo task and refresh. Completion validates app → database queue → worker → history. Automated container checks cover startup, migrations and login; live Grokked and AWS need acceptance testing after access is configured.
+Submit a demo task and refresh. Completion validates app → database queue → worker → history. Automated container checks cover startup, migrations, login, task submission, duplicate suppression, database queue processing, demo completion and logout; live Grokked and AWS need acceptance testing after access is configured.
 
 ## Operations and recovery
 

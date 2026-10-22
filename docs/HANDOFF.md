@@ -1,5 +1,23 @@
 # Agent Hub continuation — 2026-10-22
 
+## Local continuation verified — 2026-10-22
+
+This section supersedes the original environment's verification and publication blockers below.
+
+- Checked out `feat/agent-hub-poc` at imported commit `fefbb56`; working tree was clean. No pre-existing local changes were overwritten.
+- Existing PR: https://github.com/alnutile/laravel-agent-hub/pull/1. Initial feature-branch Actions runs passed PHP, Terraform and image checks; deploy was skipped as intended.
+- Installed locked Composer dependencies using local PHP 8.4. Created an ignored local `.env` from the example and generated a local application key.
+- Local PHP suite: **6 tests / 24 assertions passed**. Pint and Composer audit passed (no advisories).
+- Local Terraform 1.16.1: formatting, backend-disabled initialization and validation all passed with signed AWS provider 6.70.0. Added the verified Darwin ARM64 package checksum to the existing provider lock file. No AWS plan/apply was run.
+- Local Docker build passed. Added `ops/smoke-test.py` and replaced CI's login-page-only check with this reusable end-to-end check. It passed against the production image: migrations, anonymous access protection, authenticated HTTP login/submission, duplicate suppression, real database queue processing, demo completion, health and logout. Test operator, key, database and container are disposable; no remote agent is contacted.
+- README and AWS runbook document the expanded check. Deployments remain in Actions and credentials remain outside tracked files.
+- No repository Actions variables were configured at inspection. AWS account/profile, region, VPC/subnet, state bucket and provisioning role remain required from the user. Live AWS/OIDC/deployment and Grokked integration remain unverified.
+- Next: verify CI for the continuation commit and review/merge PR #1. After sandbox configuration and reviewed infrastructure plan, provision and deploy through the documented Actions workflows, verify an AWS demo task, then configure a separate Grokked worker.
+
+## Original handoff context
+
+The following records the implementation environment and earlier limitations for historical context.
+
 ## What the user is trying to accomplish
 
 Build a proof of concept for an internal hub that makes AI and agent workflows usable by technical and nontechnical colleagues. The broader setting is exploration for a BetterHelp role, not an authorized BetterHelp production deployment. The user has not started that role and still needs discovery of actual processes, ownership and friction.

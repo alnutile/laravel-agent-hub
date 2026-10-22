@@ -47,23 +47,7 @@ jobs:
       - uses: actions/checkout@v4
       - run: docker build -t agent-hub:test .
       - name: Container smoke test
-        shell: bash
-        run: |
-          set -euo pipefail
-          key="base64:$(openssl rand -base64 32)"
-          echo "::add-mask::$key"
-          docker run -d --name hub-smoke -p 127.0.0.1:8080:80 \
-            -e APP_KEY="$key" -e APP_ENV=testing -e APP_DEBUG=false \
-            -e DB_CONNECTION=sqlite -e DB_DATABASE=/var/www/html/storage/app/hub.sqlite \
-            -e CACHE_STORE=array -e SESSION_DRIVER=file agent-hub:test
-          docker exec hub-smoke sh -c 'touch storage/app/hub.sqlite && chown www-data:www-data storage/app/hub.sqlite'
-          docker exec --user www-data hub-smoke php artisan migrate --force
-          for i in {1..30}; do
-            if curl -fsS http://127.0.0.1:8080/login >/dev/null; then exit 0; fi
-            sleep 2
-          done
-          docker logs hub-smoke
-          exit 1
+        run: python3 ops/smoke-test.py agent-hub:test
       - uses: aws-actions/configure-aws-credentials@v4
         if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request' && vars.AWS_DEPLOY_ROLE_ARN != ''
         with:
