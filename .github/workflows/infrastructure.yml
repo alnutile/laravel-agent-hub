@@ -1,0 +1,41 @@
+name: Terraform infrastructure
+on:
+  workflow_dispatch:
+    inputs:
+      apply:
+        description: Apply the generated plan to the configured sandbox account
+        type: boolean
+        default: false
+permissions:
+  contents: read
+  id-token: write
+concurrency:
+  group: infrastructure-poc
+  cancel-in-progress: false
+jobs:
+  terraform:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    env:
+      TF_IN_AUTOMATION: 'true'
+      TF_VAR_region: ${{ vars.AWS_REGION }}
+      TF_VAR_vpc_id: ${{ vars.VPC_ID }}
+      TF_VAR_subnet_id: ${{ vars.SUBNET_ID }}
+      TF_VAR_github_oidc_subject: ${{ vars.AWS_OIDC_SUBJECT }}
+      STATE_BUCKET: ${{ vars.TF_STATE_BUCKET }}
+      AWS_REGION: ${{ vars.AWS_REGION }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: '1.14.0'
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_TERRAFORM_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+      - run: terraform -chdir=infra init -backend-config="bucket=$STATE_BUCKET" -backend-config="region=$AWS_REGION" -backend-config="key=agent-hub/poc.tfstate" -backend-config="encrypt=true" -backend-config="use_lockfile=true"
+      - run: terraform -chdir=infra plan -out=poc.tfplan
+      - if: inputs.apply
+        run: terraform -chdir=infra apply -auto-approve poc.tfplan
+      - if: inputs.apply
+        run: terraform -chdir=infra output

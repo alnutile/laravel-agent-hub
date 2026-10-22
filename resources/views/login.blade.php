@@ -1,0 +1,2 @@
+@extends('layout')
+@section('content')<section><h2>Operator sign in</h2><p>A proof of concept for turning requests into bounded agent tasks.</p><form method="post" action="/login">@csrf<label>Email<input name="email" type="email" autocomplete="username" required></label><label>Password<input name="password" type="password" autocomplete="current-password" required></label><button>Sign in</button></form></section>@endsection

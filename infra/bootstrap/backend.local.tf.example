@@ -1,0 +1,10 @@
+# Copy to backend.local.tf only after creating the bucket, then init -migrate-state.
+terraform {
+  backend "s3" {
+    bucket       = "agent-hub-tfstate-415017828442-us-east-1"
+    region       = "us-east-1"
+    key          = "agent-hub/bootstrap.tfstate"
+    encrypt      = true
+    use_lockfile = true
+  }
+}

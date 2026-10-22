@@ -1,0 +1,5 @@
+bucket       = "YOUR-EXISTING-TERRAFORM-STATE-BUCKET"
+key          = "agent-hub/poc.tfstate"
+region       = "us-east-1"
+encrypt      = true
+use_lockfile = true

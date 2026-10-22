@@ -1,0 +1,14 @@
+.git
+.github
+.env*
+vendor
+node_modules
+tests
+infra
+storage/logs/*
+storage/framework/cache/data/*
+storage/framework/sessions/*
+storage/framework/views/*
+storage/app/*.sqlite*
+bootstrap/cache/*.php
+**/*.tfstate*
