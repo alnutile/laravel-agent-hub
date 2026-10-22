@@ -1,5 +1,33 @@
 # AWS pilot runbook
 
+## Selected sandbox and bootstrap plan
+
+The selected account is `415017828442`, region `us-east-1`. Live inspection on 2026-10-22 found no VPCs or subnets in that region. The GitHub OIDC provider exists with the required audience. GitHub reports the exact main subject as `repo:alnutile@365385/laravel-agent-hub@1430214342:ref:refs/heads/main`.
+
+`infra/bootstrap/` prepares the missing prerequisites with an account guard:
+
+- Dedicated versioned, encrypted, private, TLS-only state bucket `agent-hub-tfstate-415017828442-us-east-1`, protected against Terraform destruction.
+- VPC `10.87.0.0/16`, NAT subnet `10.87.0.0/24` and private app subnet `10.87.1.0/24` in `us-east-1a`, with an Internet gateway, one zonal NAT gateway, EIP and separate route tables. The app host receives no public IP and no ingress rules.
+- `agent-hub-terraform-provisioner` with exact main-branch OIDC trust. Permissions cover the app's named roles/profile, ECR, runtime secret metadata, log group, state/lock objects and tagged EC2 resources. It cannot change its own policy or bootstrap networking. Managing the app host and its role is still powerful authority: protect workflow edits and main-branch merges.
+
+The existing `bh-demo-tfstate-415017828442` bucket contains other projects and lacks a TLS-only bucket policy; bootstrap leaves it untouched. No new AWS resources have been created by preparing the plan.
+
+The NAT hourly rate retrieved from the AWS Pricing API for `us-east-1` is $0.045/hour. Combined with one public IPv4 at $0.005/hour, network baseline is approximately **$36.50 per 730-hour month**, plus NAT data processing, transfer and app resources (EC2, EBS, ECR, logs, secret and S3). See [AWS VPC pricing](https://aws.amazon.com/vpc/pricing/). Single-AZ NAT is sufficient for this pilot, not a highly available design. NAT charges continue even while the app instance is stopped.
+
+An account administrator performs this one-time bootstrap after reviewing its saved plan:
+
+```bash
+terraform -chdir=infra/bootstrap init
+terraform -chdir=infra/bootstrap validate
+terraform -chdir=infra/bootstrap plan -out=bootstrap.tfplan
+# Apply only the reviewed plan after infrastructure approval.
+terraform -chdir=infra/bootstrap apply bootstrap.tfplan
+```
+
+Bootstrap begins with ignored local state because its own state bucket does not yet exist. Back up that local state securely, copy `infra/bootstrap/backend.local.tf.example` to ignored `infra/bootstrap/backend.local.tf`, then run `terraform -chdir=infra/bootstrap init -migrate-state` to migrate it to `agent-hub/bootstrap.tfstate`. Confirm the remote state exists before removing local backups. Application provisioning uses the separate `agent-hub/poc.tfstate` key through Actions. Never commit state or plan files.
+
+Use bootstrap outputs to fill the repository variables below. The provisioning role deliberately has no access to bootstrap state. App code deployment continues exclusively through Actions. Bootstrap requires no merge or application deploy; running the app workflows on `main` will require the implementation PR to be reviewed and merged.
+
 ## Bootstrap once
 
 Use a sandbox AWS account through AWS SSO/profile. Never put access keys in GitHub or the repo. An account administrator must first provision:

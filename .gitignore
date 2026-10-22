@@ -34,3 +34,5 @@ Thumbs.db
 *.pem
 *.key
 *.env
+
+/infra/bootstrap/backend.local.tf

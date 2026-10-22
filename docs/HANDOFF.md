@@ -1,5 +1,16 @@
 # Agent Hub continuation — 2026-10-22
 
+## AWS bootstrap prepared — 2026-10-22
+
+- User confirmed the active AWS CLI account `415017828442` (`alfred`) and region `us-east-1` as the intended sandbox. Local AWS CLI authentication works; no credentials were copied into the repository or chat.
+- Live account inventory found no VPCs/subnets/route tables in that region. GitHub's OIDC provider already exists with audience `sts.amazonaws.com`; repository API confirms immutable main-branch subject `repo:alnutile@365385/laravel-agent-hub@1430214342:ref:refs/heads/main`.
+- Existing `bh-demo-tfstate-415017828442` is versioned/encrypted/private but has no TLS-only bucket policy and holds unrelated project state. It is left untouched.
+- Added account-guarded `infra/bootstrap/` for a dedicated state bucket, VPC/public NAT subnet/private app subnet, NAT/EIP/routes and a main-branch OIDC provisioning role. CI now validates this configuration too. See `docs/aws.md` for resources, authority boundaries and state migration instructions.
+- Local bootstrap initialization, validation and AWS-backed saved plan passed: **17 additions, 0 changes, 0 destroys**. Saved plan is ignored at `infra/bootstrap/bootstrap.tfplan`; review text is `/tmp/agent-hub-bootstrap-plan.txt`. The app infrastructure has not yet been planned against created subnet IDs.
+- AWS Pricing API confirms us-east-1 NAT at $0.045/hour. NAT plus IPv4 baseline is about $36.50 per 730-hour month; traffic and all application resources cost extra. NAT remains billable while the instance is stopped.
+- **No resources were created and no infrastructure was applied.** Next action is user review/approval of this concrete bootstrap plan, followed by applying that saved Terraform plan and migrating bootstrap state securely to its new bucket. Configure nonsecret repository variables from outputs, review/merge PR #1, then use Actions for app infrastructure plan/apply and application deployment. Never manually deploy app code to a host.
+- Live OIDC role assumption, app infrastructure/app deployment and Grokked remain unverified. The provisioning policy is statically validated by Terraform; runtime permissions must be checked in the first Actions plan and adjusted narrowly if required.
+
 ## Local continuation verified — 2026-10-22
 
 This section supersedes the original environment's verification and publication blockers below.
