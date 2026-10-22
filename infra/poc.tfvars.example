@@ -1,0 +1,4 @@
+region    = "us-east-1"
+vpc_id    = "vpc-REPLACE"
+subnet_id = "subnet-REPLACE"
+github_oidc_subject = "REPLACE_WITH_VERIFIED_MAIN_BRANCH_SUBJECT"

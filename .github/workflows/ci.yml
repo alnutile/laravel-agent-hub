@@ -1,0 +1,110 @@
+name: Test, build and deploy
+on:
+  pull_request:
+  push:
+    branches: [main, 'feat/**']
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          extensions: mbstring, pdo_sqlite
+          coverage: none
+      - run: composer install --no-interaction --prefer-dist
+      - run: cp .env.example .env && php artisan key:generate
+      - run: vendor/bin/pint --test
+      - run: php artisan test
+      - run: composer audit
+  terraform:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: '1.14.0'
+      - run: terraform fmt -check -recursive infra
+      - run: terraform -chdir=infra init -backend=false
+      - run: terraform -chdir=infra validate
+      - run: bash -n ops/deploy.sh
+  image:
+    needs: [test, terraform]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    outputs:
+      image: ${{ steps.publish.outputs.image }}
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker build -t agent-hub:test .
+      - name: Container smoke test
+        shell: bash
+        run: |
+          set -euo pipefail
+          key="base64:$(openssl rand -base64 32)"
+          echo "::add-mask::$key"
+          docker run -d --name hub-smoke -p 127.0.0.1:8080:80 \
+            -e APP_KEY="$key" -e APP_ENV=testing -e APP_DEBUG=false \
+            -e DB_CONNECTION=sqlite -e DB_DATABASE=/var/www/html/storage/app/hub.sqlite \
+            -e CACHE_STORE=array -e SESSION_DRIVER=file agent-hub:test
+          docker exec hub-smoke sh -c 'touch storage/app/hub.sqlite && chown www-data:www-data storage/app/hub.sqlite'
+          docker exec --user www-data hub-smoke php artisan migrate --force
+          for i in {1..30}; do
+            if curl -fsS http://127.0.0.1:8080/login >/dev/null; then exit 0; fi
+            sleep 2
+          done
+          docker logs hub-smoke
+          exit 1
+      - uses: aws-actions/configure-aws-credentials@v4
+        if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request' && vars.AWS_DEPLOY_ROLE_ARN != ''
+        with:
+          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+      - name: Publish immutable image
+        id: publish
+        if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request' && vars.AWS_DEPLOY_ROLE_ARN != ''
+        env:
+          ECR_URL: ${{ vars.ECR_URL }}
+          AWS_REGION: ${{ vars.AWS_REGION }}
+        run: |
+          set -euo pipefail
+          registry="${ECR_URL%%/*}"
+          aws ecr get-login-password --region "$AWS_REGION" | docker login --username AWS --password-stdin "$registry"
+          # Re-runs reuse the immutable tag already built for this commit.
+          digest=$(aws ecr describe-images --repository-name agent-hub --image-ids imageTag="$GITHUB_SHA" --query 'imageDetails[0].imageDigest' --output text 2>/dev/null || true)
+          if [[ -z "$digest" || "$digest" == None ]]; then
+            docker tag agent-hub:test "$ECR_URL:$GITHUB_SHA"
+            docker push "$ECR_URL:$GITHUB_SHA"
+            digest=$(aws ecr describe-images --repository-name agent-hub --image-ids imageTag="$GITHUB_SHA" --query 'imageDetails[0].imageDigest' --output text)
+          fi
+          echo "image=$ECR_URL@$digest" >> "$GITHUB_OUTPUT"
+  deploy:
+    needs: image
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request' && vars.AWS_DEPLOY_ROLE_ARN != ''
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+      - name: Deploy through SSM and wait for health
+        env:
+          IMAGE: ${{ needs.image.outputs.image }}
+          INSTANCE_ID: ${{ vars.INSTANCE_ID }}
+          RUNTIME_SECRET_ARN: ${{ vars.RUNTIME_SECRET_ARN }}
+          AWS_REGION: ${{ vars.AWS_REGION }}
+          LOG_GROUP: /agent-hub/runtime
+        run: python3 ops/ssm-deploy.py
